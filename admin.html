@@ -3,185 +3,92 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin - Product Manager</title>
+<title>Admin - Manage Products</title>
 <style>
-  body { font-family: Arial, sans-serif; padding: 2rem; background: #f9f9f9; }
-  #login { max-width: 400px; margin: auto; text-align: center; }
-  #admin-panel { display: none; max-width: 1000px; margin: auto; }
-  table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-  th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: center; }
+  body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  th, td { border: 1px solid #ccc; padding: 5px; text-align: center; }
   th { background: #eee; }
-  input, select { width: 90%; padding: 0.3rem; }
-  .grade-red { background: red; color: white; }
-  .grade-yellow { background: yellow; color: black; }
-  .grade-green { background: green; color: white; }
-  #add-form { margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-  #add-form input, #add-form select { flex: 1; }
-  button { padding: 0.5rem 1rem; cursor: pointer; }
+  input { width: 60px; }
+  .grade { padding: 2px 5px; border-radius: 5px; color: white; font-weight: bold; }
+  button { padding: 5px 10px; margin: 2px; }
+  #login { max-width: 300px; margin: 50px auto; }
 </style>
 </head>
 <body>
 
 <div id="login">
   <h2>Admin Login</h2>
-  <input type="password" id="password" placeholder="Enter password">
-  <button onclick="checkPassword()">Login</button>
-  <div id="login-msg" style="color:red; margin-top:1rem;"></div>
+  <input type="password" id="password" placeholder="Password">
+  <button onclick="login()">Login</button>
 </div>
 
-<div id="admin-panel">
-  <h2>Product Manager</h2>
-  <table id="product-grid">
+<div id="admin" style="display:none;">
+  <h1>Manage Products</h1>
+  <table id="productTable">
     <thead>
       <tr>
-        <th>Barcode</th>
-        <th>Name</th>
-        <th>Calories</th>
-        <th>Serving</th>
-        <th>Grade</th>
-        <th>Remove</th>
+        <th>Barcode</th><th>Name</th><th>Calories</th><th>Serving</th>
+        <th>Protein</th><th>Fat</th><th>Carbs</th><th>Sugar</th><th>Fiber</th><th>Sodium</th><th>Grade</th><th>Actions</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
-
-  <div id="add-form">
-    <input type="text" id="new-barcode" placeholder="Barcode">
-    <input type="text" id="new-name" placeholder="Product Name">
-    <input type="number" id="new-calories" placeholder="Calories">
-    <input type="text" id="new-serving" placeholder="Serving Size">
-    <select id="new-grade">
-      <option value="100">Green</option>
-      <option value="75">Yellow</option>
-      <option value="40">Red</option>
-    </select>
-    <button onclick="addProduct()">Add Product</button>
-  </div>
-
-  <button style="margin-top:1rem;" onclick="downloadJSON()">Download JSON</button>
+  <button onclick="addProduct()">Add Product</button>
+  <button onclick="downloadJSON()">Download JSON</button>
 </div>
 
 <script>
-const PASSWORD = "admin123"; // change to your password
-let products = {};
+const PASSWORD = "admin123"; // change password here
+let products = [
+  { barcode: "123456789012", name: "Apple", calories: 95, serving: "1 medium", grade: 90, nutrition: { protein: 0.5, fat: 0.3, carbs: 25, sugar: 19, fiber: 4.4, sodium: 1 } },
+  { barcode: "987654321098", name: "Chocolate Bar", calories: 250, serving: "1 bar", grade: 45, nutrition: { protein: 3, fat: 13, carbs: 30, sugar: 25, fiber: 2, sodium: 50 } }
+];
 
-function checkPassword() {
-  const input = document.getElementById('password').value;
-  if(input === PASSWORD){
+function login() {
+  const pass = document.getElementById('password').value;
+  if(pass === PASSWORD) {
     document.getElementById('login').style.display = 'none';
-    document.getElementById('admin-panel').style.display = 'block';
-    loadJSON();
-  } else {
-    document.getElementById('login-msg').textContent = 'Wrong password!';
-  }
+    document.getElementById('admin').style.display = 'block';
+    renderTable();
+  } else alert('Wrong password');
 }
 
-function loadJSON() {
-  fetch('products.json')
-    .then(res => res.json())
-    .then(data => {
-      products = data;
-      renderGrid();
-    })
-    .catch(err => {
-      console.log(err);
-      products = {};
-      renderGrid();
-    });
-}
-
-function renderGrid() {
-  const tbody = document.querySelector('#product-grid tbody');
+function renderTable() {
+  const tbody = document.querySelector("#productTable tbody");
   tbody.innerHTML = '';
-
-  Object.entries(products).forEach(([barcode, product]) => {
+  products.forEach((p, i) => {
     const tr = document.createElement('tr');
-
-    // Barcode
-    const tdBarcode = document.createElement('td');
-    tdBarcode.textContent = barcode;
-    tr.appendChild(tdBarcode);
-
-    // Name
-    const tdName = document.createElement('td');
-    const inputName = document.createElement('input');
-    inputName.value = product.name;
-    inputName.oninput = () => product.name = inputName.value;
-    tdName.appendChild(inputName);
-    tr.appendChild(tdName);
-
-    // Calories
-    const tdCal = document.createElement('td');
-    const inputCal = document.createElement('input');
-    inputCal.type = 'number';
-    inputCal.value = product.calories;
-    inputCal.oninput = () => product.calories = parseInt(inputCal.value) || 0;
-    tdCal.appendChild(inputCal);
-    tr.appendChild(tdCal);
-
-    // Serving
-    const tdServing = document.createElement('td');
-    const inputServing = document.createElement('input');
-    inputServing.value = product.serving;
-    inputServing.oninput = () => product.serving = inputServing.value;
-    tdServing.appendChild(inputServing);
-    tr.appendChild(tdServing);
-
-    // Grade
-    const tdGrade = document.createElement('td');
-    const selectGrade = document.createElement('select');
-    [100, 75, 40].forEach(val => {
-      const option = document.createElement('option');
-      option.value = val;
-      option.textContent = val >= 80 ? 'Green' : val >= 50 ? 'Yellow' : 'Red';
-      if(val === product.grade) option.selected = true;
-      selectGrade.appendChild(option);
-    });
-    selectGrade.onchange = () => product.grade = parseInt(selectGrade.value);
-    tdGrade.appendChild(selectGrade);
-    tr.appendChild(tdGrade);
-
-    // Remove button
-    const tdRemove = document.createElement('td');
-    const btnRemove = document.createElement('button');
-    btnRemove.textContent = 'X';
-    btnRemove.onclick = () => { delete products[barcode]; renderGrid(); };
-    tdRemove.appendChild(btnRemove);
-    tr.appendChild(tdRemove);
-
+    tr.innerHTML = `
+      <td><input value="${p.barcode}" onchange="update(${i}, 'barcode', this.value)"></td>
+      <td><input value="${p.name}" onchange="update(${i}, 'name', this.value)"></td>
+      <td><input value="${p.calories}" type="number" onchange="update(${i}, 'calories', this.value)"></td>
+      <td><input value="${p.serving}" onchange="update(${i}, 'serving', this.value)"></td>
+      <td><input value="${p.nutrition.protein}" type="number" onchange="updateNutrition(${i}, 'protein', this.value)"></td>
+      <td><input value="${p.nutrition.fat}" type="number" onchange="updateNutrition(${i}, 'fat', this.value)"></td>
+      <td><input value="${p.nutrition.carbs}" type="number" onchange="updateNutrition(${i}, 'carbs', this.value)"></td>
+      <td><input value="${p.nutrition.sugar}" type="number" onchange="updateNutrition(${i}, 'sugar', this.value)"></td>
+      <td><input value="${p.nutrition.fiber}" type="number" onchange="updateNutrition(${i}, 'fiber', this.value)"></td>
+      <td><input value="${p.nutrition.sodium}" type="number" onchange="updateNutrition(${i}, 'sodium', this.value)"></td>
+      <td><input value="${p.grade}" type="number" onchange="update(${i}, 'grade', this.value)"></td>
+      <td><button onclick="deleteProduct(${i})">Delete</button></td>
+    `;
     tbody.appendChild(tr);
   });
 }
 
+function update(index, key, value) { products[index][key] = isNaN(value)? value : Number(value); renderTable(); }
+function updateNutrition(index, key, value) { products[index].nutrition[key] = Number(value); renderTable(); }
+function deleteProduct(index) { products.splice(index,1); renderTable(); }
 function addProduct() {
-  const barcode = document.getElementById('new-barcode').value.trim();
-  const name = document.getElementById('new-name').value.trim();
-  const calories = parseInt(document.getElementById('new-calories').value) || 0;
-  const serving = document.getElementById('new-serving').value.trim();
-  const grade = parseInt(document.getElementById('new-grade').value);
-
-  if(!barcode || !name) {
-    alert("Barcode and name are required");
-    return;
-  }
-
-  products[barcode] = { name, calories, serving, grade };
-  renderGrid();
-
-  // Clear form
-  document.getElementById('new-barcode').value = '';
-  document.getElementById('new-name').value = '';
-  document.getElementById('new-calories').value = '';
-  document.getElementById('new-serving').value = '';
-  document.getElementById('new-grade').value = 100;
+  products.push({ barcode:"", name:"", calories:0, serving:"", grade:0, nutrition:{ protein:0,fat:0,carbs:0,sugar:0,fiber:0,sodium:0 }});
+  renderTable();
 }
-
 function downloadJSON() {
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(products, null, 2));
-  const dlAnchor = document.createElement('a');
-  dlAnchor.setAttribute("href", dataStr);
-  dlAnchor.setAttribute("download", "products.json");
-  dlAnchor.click();
+  const blob = new Blob([JSON.stringify(products, null, 2)], {type: "application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = "products.json"; a.click();
 }
 </script>
 </body>
