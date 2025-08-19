@@ -1,0 +1,14 @@
+{
+  "0123456789012": {
+    "name": "Chocolate Bar",
+    "calories": 250,
+    "serving": "1 bar (45g)",
+    "grade": 85
+  },
+  "9876543210987": {
+    "name": "Apple Juice",
+    "calories": 120,
+    "serving": "1 cup (240ml)",
+    "grade": 70
+  }
+}
