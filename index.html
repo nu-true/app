@@ -3,83 +3,145 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Barcode Scanner</title>
+<title>Barcode Nutrition Scanner</title>
 <style>
-  body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
-  #product { display: none; padding: 20px; border-radius: 10px; background: white; width: 90%; max-width: 400px; margin: 20px auto; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
-  #product div { margin-bottom: 10px; }
-  .grade { padding: 5px 10px; color: white; border-radius: 5px; font-weight: bold; display: inline-block; }
-  video { width: 100%; max-width: 400px; border-radius: 10px; }
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        background: #f0f2f5;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 10px;
+    }
+    h1 { text-align: center; }
+    #video-container {
+        position: relative;
+        width: 90vw;
+        max-width: 500px;
+    }
+    video {
+        width: 100%;
+        border-radius: 10px;
+    }
+    #product-info {
+        margin-top: 20px;
+        width: 90vw;
+        max-width: 500px;
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .grade {
+        font-weight: bold;
+        padding: 5px 10px;
+        border-radius: 5px;
+        color: white;
+        display: inline-block;
+        margin-top: 5px;
+    }
+    .green { background-color: #28a745; }
+    .yellow { background-color: #ffc107; color: black; }
+    .red { background-color: #dc3545; }
+    @media(max-width: 600px) {
+        #video-container, #product-info { width: 95vw; }
+    }
 </style>
 </head>
 <body>
 
-<h1>Scan a Product</h1>
-<video id="video" autoplay></video>
+<h1>Barcode Nutrition Scanner</h1>
 
-<div id="product">
-  <div id="name"></div>
-  <div id="calories"></div>
-  <div id="serving"></div>
-  <div id="nutrition"></div>
-  <div id="grade" class="grade"></div>
+<div id="video-container">
+    <video id="video" autoplay></video>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@zxing/library@latest"></script>
+<div id="product-info" style="display:none;">
+    <h2 id="product-name"></h2>
+    <p><strong>Serving Size:</strong> <span id="serving-size"></span></p>
+    <p><strong>Calories:</strong> <span id="calories"></span></p>
+    <p><strong>Fat:</strong> <span id="fat"></span></p>
+    <p><strong>Carbs:</strong> <span id="carbs"></span></p>
+    <p><strong>Protein:</strong> <span id="protein"></span></p>
+    <p><strong>Grade:</strong> <span id="grade" class="grade"></span></p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
 <script>
 const video = document.getElementById('video');
-const productDiv = document.getElementById('product');
-const nameDiv = document.getElementById('name');
-const caloriesDiv = document.getElementById('calories');
-const servingDiv = document.getElementById('serving');
-const nutritionDiv = document.getElementById('nutrition');
-const gradeDiv = document.getElementById('grade');
+const productInfo = document.getElementById('product-info');
+const productNameEl = document.getElementById('product-name');
+const servingEl = document.getElementById('serving-size');
+const caloriesEl = document.getElementById('calories');
+const fatEl = document.getElementById('fat');
+const carbsEl = document.getElementById('carbs');
+const proteinEl = document.getElementById('protein');
+const gradeEl = document.getElementById('grade');
 
-let products = [
-  {
-    barcode: "123456789012",
-    name: "Apple",
-    calories: 95,
-    serving: "1 medium",
-    grade: 90,
-    nutrition: { protein: 0.5, fat: 0.3, carbs: 25, sugar: 19, fiber: 4.4, sodium: 1 }
-  },
-  {
-    barcode: "987654321098",
-    name: "Chocolate Bar",
-    calories: 250,
-    serving: "1 bar",
-    grade: 45,
-    nutrition: { protein: 3, fat: 13, carbs: 30, sugar: 25, fiber: 2, sodium: 50 }
-  }
-];
+let selectedDeviceId;
+const codeReader = new ZXing.BrowserMultiFormatReader();
 
-function showProduct(product) {
-  nameDiv.textContent = product.name;
-  caloriesDiv.textContent = `Calories: ${product.calories}`;
-  servingDiv.textContent = `Serving: ${product.serving}`;
-  const n = product.nutrition;
-  nutritionDiv.innerHTML = `
-    Protein: ${n.protein}g<br>
-    Fat: ${n.fat}g<br>
-    Carbs: ${n.carbs}g<br>
-    Sugar: ${n.sugar}g<br>
-    Fiber: ${n.fiber}g<br>
-    Sodium: ${n.sodium}mg
-  `;
-  gradeDiv.textContent = `Grade: ${product.grade}/100`;
-  gradeDiv.style.backgroundColor = product.grade >= 75 ? 'green' : product.grade >= 40 ? 'yellow' : 'red';
-  productDiv.style.display = 'block';
+navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+.then(stream => {
+    video.srcObject = stream;
+    video.play();
+})
+.catch(err => console.error(err));
+
+const products = {
+    "0123456789012": {
+        name: "Chocolate Bar",
+        serving: "1 bar (50g)",
+        calories: 250,
+        fat: "12g",
+        carbs: "30g",
+        protein: "3g",
+        grade: 70
+    },
+    "9876543210987": {
+        name: "Granola Bar",
+        serving: "1 bar (40g)",
+        calories: 180,
+        fat: "6g",
+        carbs: "28g",
+        protein: "5g",
+        grade: 85
+    }
+};
+
+function getGradeClass(score) {
+    if (score >= 80) return 'green';
+    if (score >= 50) return 'yellow';
+    return 'red';
 }
 
-// Setup webcam scanning
-const codeReader = new ZXing.BrowserBarcodeReader();
-codeReader.decodeFromVideoDevice(null, video, (result, err) => {
-  if (result) {
-    const product = products.find(p => p.barcode === result.text);
-    if (product) showProduct(product);
-  }
-});
+function displayProduct(barcode) {
+    const p = products[barcode];
+    if (!p) return;
+    productInfo.style.display = 'block';
+    productNameEl.textContent = p.name;
+    servingEl.textContent = p.serving;
+    caloriesEl.textContent = p.calories;
+    fatEl.textContent = p.fat;
+    carbsEl.textContent = p.carbs;
+    proteinEl.textContent = p.protein;
+    gradeEl.textContent = p.grade;
+    gradeEl.className = 'grade ' + getGradeClass(p.grade);
+}
+
+function scanFrame() {
+    codeReader.decodeOnceFromVideoDevice(selectedDeviceId || null, 'video')
+    .then(result => {
+        displayProduct(result.text);
+        setTimeout(scanFrame, 2000);
+    })
+    .catch(err => {
+        setTimeout(scanFrame, 500);
+    });
+}
+
+scanFrame();
 </script>
 </body>
 </html>
