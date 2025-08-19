@@ -1,123 +1,132 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Nutrue</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <style>
     body {
-      font-family: system-ui, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
       margin: 0;
-      padding: 1rem;
-      background: #121212;
-      color: #eee;
+      padding: 0;
+      background: #f7f7f7;
+      color: #222;
       text-align: center;
     }
-    h1 { margin-bottom: 0.5rem; }
-    video {
-      width: 100%;
-      max-height: 250px;
-      border-radius: 12px;
-      background: #000;
-      margin: 1rem 0;
-    }
-    button {
-      padding: 0.75rem 1.2rem;
-      margin: 0.5rem;
-      border: none;
-      border-radius: 12px;
-      background: #2a9d8f;
+    header {
+      background: #4CAF50;
       color: white;
-      font-size: 1rem;
-    }
-    button:active { opacity: 0.8; }
-    .card {
-      background: #1e1e1e;
       padding: 1rem;
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+    #reader {
+      width: 100%;
+      max-width: 400px;
+      margin: 1rem auto;
+    }
+    .btn {
+      display: inline-block;
+      margin: 0.5rem;
+      padding: 0.8rem 1.2rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #4CAF50;
+      color: white;
+    }
+    .btn:active {
+      background: #45a049;
+    }
+    .card {
+      background: white;
+      margin: 1rem auto;
+      padding: 1rem;
+      max-width: 400px;
       border-radius: 12px;
-      margin-top: 1rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
       text-align: left;
     }
     .nutrient {
       display: flex;
       justify-content: space-between;
-      margin: 4px 0;
+      padding: 0.3rem 0;
+      border-bottom: 1px solid #eee;
+    }
+    .nutrient:last-child {
+      border-bottom: none;
     }
   </style>
-  <script src="https://unpkg.com/@zxing/library@latest"></script>
 </head>
 <body>
-  <h1>Nutrue</h1>
-  <p>Scan a barcode to get nutrition info</p>
-  
-  <video id="preview"></video>
-  <button onclick="startScanner()">Start Scan</button>
-  <button onclick="stopScanner()">Stop Scan</button>
-  
+  <header>Nutrue</header>
+
+  <div id="reader"></div>
+  <button class="btn" onclick="startScanner()">Start Scan</button>
+  <button class="btn" onclick="stopScanner()">Stop Scan</button>
+
   <div id="result"></div>
 
-  <script>
-    let codeReader, stream;
+<script>
+  let scanner;
 
-    async function startScanner() {
-      codeReader = new ZXing.BrowserMultiFormatReader();
-      try {
-        const previewElem = document.getElementById('preview');
-        await codeReader.decodeFromVideoDevice({ facingMode: "environment" }, previewElem, (result, err) => {
-          if (result) {
-            stopScanner();
-            fetchProduct(result.text);
-          }
-        });
-      } catch (e) {
-        alert("Camera error: " + e);
-      }
-    }
+  function startScanner() {
+    if (scanner) scanner.stop();
 
-    function stopScanner() {
-      if (codeReader) codeReader.reset();
-    }
+    scanner = new Html5Qrcode("reader");
 
-    async function fetchProduct(barcode) {
-      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-      const data = await res.json();
-      if (data.status === 1) {
-        showProduct(data.product);
-      } else {
-        document.getElementById("result").innerHTML = "<p>Not found. Add manually later.</p>";
-      }
-    }
+    // Try environment camera, fallback to default
+    Html5Qrcode.getCameras().then(cameras => {
+      const camId = cameras.find(c => c.label.toLowerCase().includes("back"))?.id || cameras[0].id;
 
-    function showProduct(p) {
-      const nutrients = p.nutriments || {};
-      const fields = [
-        ["Energy (kcal)", nutrients["energy-kcal_100"]],
-        ["Protein", nutrients.proteins_100 + " g"],
-        ["Carbs", nutrients.carbohydrates_100 + " g"],
-        ["Sugar", nutrients.sugars_100 + " g"],
-        ["Fat", nutrients.fat_100 + " g"],
-        ["Saturated", nutrients["saturated-fat_100"] + " g"],
-        ["Fiber", nutrients.fiber_100 + " g"],
-        ["Sodium", nutrients.sodium_100 + " g"]
-      ];
-      let html = `<div class="card"><h2>${p.product_name || "Unknown Product"}</h2>`;
-      fields.forEach(([label, val]) => {
-        if (val && val !== "undefined g") {
-          html += `<div class="nutrient"><span>${label}</span><span>${val}</span></div>`;
-        }
+      scanner.start(
+        camId,
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          fetchProduct(decodedText);
+          stopScanner();
+        },
+        (err) => { console.log("Scan error:", err); }
+      ).catch(err => {
+        alert("Camera error: " + err);
       });
-      html += `<button onclick="copyToClipboard('${p.product_name}: ${nutrients['energy-kcal_100']} kcal, ${nutrients.proteins_100}g P, ${nutrients.carbohydrates_100}g C, ${nutrients.fat_100}g F')">Copy for MyFitnessPal</button>`;
-      html += "</div>";
-      document.getElementById("result").innerHTML = html;
-    }
+    });
+  }
 
-    function copyToClipboard(text) {
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(text);
-        alert("Copied to clipboard!");
-      } else {
-        prompt("Copy this:", text);
-      }
+  function stopScanner() {
+    if (scanner) {
+      scanner.stop().then(() => {
+        scanner.clear();
+      });
     }
-  </script>
+  }
+
+  async function fetchProduct(barcode) {
+    const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+    const data = await res.json();
+    if (data.status === 1) {
+      const p = data.product;
+      displayProduct(p);
+    } else {
+      document.getElementById("result").innerHTML = `<p>Product not found</p>`;
+    }
+  }
+
+  function displayProduct(p) {
+    const result = document.getElementById("result");
+    result.innerHTML = `
+      <div class="card">
+        <h2>${p.product_name || "Unknown Product"}</h2>
+        <div class="nutrient"><span>Calories</span><span>${p.nutriments["energy-kcal_serving"] || "?"} kcal</span></div>
+        <div class="nutrient"><span>Protein</span><span>${p.nutriments.proteins_serving || "?"} g</span></div>
+        <div class="nutrient"><span>Fat</span><span>${p.nutriments.fat_serving || "?"} g</span></div>
+        <div class="nutrient"><span>Carbs</span><span>${p.nutriments.carbohydrates_serving || "?"} g</span></div>
+        <div class="nutrient"><span>Sugar</span><span>${p.nutriments.sugars_serving || "?"} g</span></div>
+        <div class="nutrient"><span>Sodium</span><span>${p.nutriments.sodium_serving || "?"} g</span></div>
+      </div>
+    `;
+  }
+</script>
 </body>
 </html>
