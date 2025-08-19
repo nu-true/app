@@ -1,132 +1,117 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Nutrue</title>
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nutrition Info</title>
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      margin: 0;
-      padding: 0;
-      background: #f7f7f7;
-      color: #222;
-      text-align: center;
-    }
-    header {
-      background: #4CAF50;
-      color: white;
-      padding: 1rem;
-      font-size: 1.5rem;
-      font-weight: bold;
-    }
-    #reader {
-      width: 100%;
-      max-width: 400px;
-      margin: 1rem auto;
-    }
-    .btn {
-      display: inline-block;
-      margin: 0.5rem;
-      padding: 0.8rem 1.2rem;
-      font-size: 1rem;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      background: #4CAF50;
-      color: white;
-    }
-    .btn:active {
-      background: #45a049;
-    }
-    .card {
-      background: white;
-      margin: 1rem auto;
-      padding: 1rem;
-      max-width: 400px;
-      border-radius: 12px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      text-align: left;
-    }
-    .nutrient {
+      font-family: Arial, sans-serif;
+      background: #f0f0f0;
       display: flex;
-      justify-content: space-between;
-      padding: 0.3rem 0;
-      border-bottom: 1px solid #eee;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 20px;
+      min-height: 100vh;
     }
-    .nutrient:last-child {
-      border-bottom: none;
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 20px;
+      width: 320px;
+      max-width: 90vw;
+      text-align: center;
+      transition: transform 0.2s;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+    }
+
+    .product-name {
+      font-size: 1.4rem;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    .serving {
+      font-size: 1rem;
+      color: #555;
+      margin-bottom: 8px;
+    }
+
+    .calories {
+      font-size: 1.2rem;
+      margin-bottom: 12px;
+    }
+
+    .grade {
+      font-size: 1.2rem;
+      font-weight: bold;
+      padding: 6px 12px;
+      border-radius: 8px;
+      color: #fff;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+
+    .green { background-color: #4caf50; }
+    .yellow { background-color: #ffb300; }
+    .red { background-color: #f44336; }
+
+    .nutrients {
+      text-align: left;
+      font-size: 0.95rem;
+      margin-top: 12px;
+    }
+
+    .nutrients div {
+      margin: 4px 0;
+    }
+
+    /* Mobile scaling */
+    @media (max-width: 480px) {
+      .card {
+        padding: 16px;
+      }
+      .product-name { font-size: 1.5rem; }
+      .calories, .grade, .serving { font-size: 1.1rem; }
+      .nutrients { font-size: 1rem; }
     }
   </style>
 </head>
 <body>
-  <header>Nutrue</header>
 
-  <div id="reader"></div>
-  <button class="btn" onclick="startScanner()">Start Scan</button>
-  <button class="btn" onclick="stopScanner()">Stop Scan</button>
+  <div class="card">
+    <div class="product-name" id="product-name">Energy Bar</div>
+    <div class="serving" id="serving-size">Serving: 1 bar (45g)</div>
+    <div class="calories" id="calories">Calories: 210 kcal</div>
+    <div class="grade green" id="nutrition-grade">Grade: 85</div>
 
-  <div id="result"></div>
+    <div class="nutrients">
+      <div id="protein">Protein: 8g</div>
+      <div id="fiber">Fiber: 5g</div>
+      <div id="sugar">Sugar: 12g</div>
+      <div id="fat">Fat: 7g</div>
+    </div>
+  </div>
 
-<script>
-  let scanner;
+  <script>
+    // Example logic to set grade color dynamically
+    const gradeElement = document.getElementById('nutrition-grade');
+    const score = 85; // replace with dynamic calculation
 
-  function startScanner() {
-    if (scanner) scanner.stop();
-
-    scanner = new Html5Qrcode("reader");
-
-    // Try environment camera, fallback to default
-    Html5Qrcode.getCameras().then(cameras => {
-      const camId = cameras.find(c => c.label.toLowerCase().includes("back"))?.id || cameras[0].id;
-
-      scanner.start(
-        camId,
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-          fetchProduct(decodedText);
-          stopScanner();
-        },
-        (err) => { console.log("Scan error:", err); }
-      ).catch(err => {
-        alert("Camera error: " + err);
-      });
-    });
-  }
-
-  function stopScanner() {
-    if (scanner) {
-      scanner.stop().then(() => {
-        scanner.clear();
-      });
-    }
-  }
-
-  async function fetchProduct(barcode) {
-    const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-    const data = await res.json();
-    if (data.status === 1) {
-      const p = data.product;
-      displayProduct(p);
+    if (score >= 80) {
+      gradeElement.className = 'grade green';
+    } else if (score >= 50) {
+      gradeElement.className = 'grade yellow';
     } else {
-      document.getElementById("result").innerHTML = `<p>Product not found</p>`;
+      gradeElement.className = 'grade red';
     }
-  }
+    gradeElement.textContent = `Grade: ${score}`;
+  </script>
 
-  function displayProduct(p) {
-    const result = document.getElementById("result");
-    result.innerHTML = `
-      <div class="card">
-        <h2>${p.product_name || "Unknown Product"}</h2>
-        <div class="nutrient"><span>Calories</span><span>${p.nutriments["energy-kcal_serving"] || "?"} kcal</span></div>
-        <div class="nutrient"><span>Protein</span><span>${p.nutriments.proteins_serving || "?"} g</span></div>
-        <div class="nutrient"><span>Fat</span><span>${p.nutriments.fat_serving || "?"} g</span></div>
-        <div class="nutrient"><span>Carbs</span><span>${p.nutriments.carbohydrates_serving || "?"} g</span></div>
-        <div class="nutrient"><span>Sugar</span><span>${p.nutriments.sugars_serving || "?"} g</span></div>
-        <div class="nutrient"><span>Sodium</span><span>${p.nutriments.sodium_serving || "?"} g</span></div>
-      </div>
-    `;
-  }
-</script>
 </body>
 </html>
