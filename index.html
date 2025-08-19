@@ -54,8 +54,6 @@
       max-width: 500px;
       margin: 1rem auto;
       text-align: left;
-      max-height: 400px;
-      overflow-y: auto;
     }
 
     .card {
@@ -102,15 +100,14 @@
 
   <div id="reader"></div>
   <button class="btn" onclick="startScanner()">Start Scan</button>
-  <button class="btn" onclick="stopScanner()">Stop Scan</button>
 
   <div id="result"></div>
 
 <script>
   let scanner;
-  let scannedBarcodes = new Set();
 
   async function startScanner() {
+    // Clear previous scanner if exists
     if (scanner) {
       await scanner.stop().catch(()=>{});
       scanner.clear();
@@ -124,29 +121,25 @@
         alert("No camera found.");
         return;
       }
+
       const camId = cameras.find(c => c.label.toLowerCase().includes("back"))?.id || cameras[0].id;
 
+      // Start scanning
       scanner.start(
         camId,
         { fps: 10, qrbox: { width: 250, height: 250 } },
         async (decodedText) => {
-          // Prevent fetching the same barcode multiple times
-          if (!scannedBarcodes.has(decodedText)) {
-            scannedBarcodes.add(decodedText);
-            await fetchProduct(decodedText);
-          }
+          // Once a barcode is detected, stop scanning
+          await scanner.stop();
+          scanner.clear();
+
+          // Fetch product and display
+          fetchProduct(decodedText);
         },
         (err) => { console.log("Scan error:", err); }
       );
     } catch (err) {
       alert("Camera error: " + err);
-    }
-  }
-
-  async function stopScanner() {
-    if (scanner) {
-      await scanner.stop().catch(()=>{});
-      scanner.clear();
     }
   }
 
@@ -168,7 +161,7 @@
   function displayProduct(p) {
     const nutriments = p.nutriments || {};
     const result = document.getElementById("result");
-    // append new card instead of replacing
+
     const card = document.createElement("div");
     card.className = "card";
     card.innerHTML = `
@@ -180,7 +173,7 @@
       <div class="nutrient"><span>Sugar</span><span>${nutriments.sugars_serving || "?"} g</span></div>
       <div class="nutrient"><span>Sodium</span><span>${nutriments.sodium_serving || "?"} g</span></div>
     `;
-    result.prepend(card); // newest first
+    result.prepend(card);
   }
 </script>
 </body>
