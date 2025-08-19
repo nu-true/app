@@ -66,13 +66,13 @@
 
     .card h2 {
       font-size: 1.3rem;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.3rem;
     }
 
     .nutrient {
       display: flex;
       justify-content: space-between;
-      padding: 0.5rem 0;
+      padding: 0.3rem 0;
       border-bottom: 1px solid #eee;
       font-size: 1rem;
     }
@@ -106,12 +106,45 @@
 <script>
   let scanner = null;
 
+  // Custom barcode database
+  const customBarcodes = [
+    {
+      "barcode": "123456789012",
+      "name": "Apple",
+      "calories": 95,
+      "serving": "1 medium",
+      "grade": 90,
+      "nutrition": {
+        "protein": 0.5,
+        "fat": 0.3,
+        "carbs": 25,
+        "sugar": 19,
+        "fiber": 4.4,
+        "sodium": 1
+      }
+    },
+    {
+      "barcode": "987654321098",
+      "name": "Chocolate Bar",
+      "calories": 250,
+      "serving": "1 bar",
+      "grade": 45,
+      "nutrition": {
+        "protein": 3,
+        "fat": 13,
+        "carbs": 30,
+        "sugar": 25,
+        "fiber": 2,
+        "sodium": 50
+      }
+    }
+  ];
+
   async function startScanner() {
-    // Stop previous scanner if exists
     if (scanner) {
       await scanner.stop().catch(()=>{});
       scanner.clear();
-      scanner = null; // Important to allow a new scanner
+      scanner = null;
     }
 
     scanner = new Html5Qrcode("reader");
@@ -129,12 +162,10 @@
         camId,
         { fps: 10, qrbox: { width: 250, height: 250 } },
         async (decodedText) => {
-          // Stop scanner after one scan
           await scanner.stop();
           scanner.clear();
           scanner = null;
 
-          // Fetch and display product
           fetchProduct(decodedText);
         },
         (err) => { console.log("Scan error:", err); }
@@ -145,34 +176,63 @@
   }
 
   async function fetchProduct(barcode) {
+    // Check custom barcodes first
+    const custom = customBarcodes.find(item => item.barcode === barcode);
+    if (custom) {
+      displayCustomProduct(custom);
+      return;
+    }
+
+    // Otherwise fetch from OpenFoodFacts
     try {
       const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
       const data = await res.json();
       if (data.status === 1) {
         displayProduct(data.product);
       } else {
-        displayProduct({ product_name: "Product not found", nutriments: {} });
+        displayProduct({ product_name: "Product not found", nutriments: {}, serving_size: "?" });
       }
     } catch (err) {
-      displayProduct({ product_name: "Error fetching product", nutriments: {} });
+      displayProduct({ product_name: "Error fetching product", nutriments: {}, serving_size: "?" });
       console.log(err);
     }
   }
 
   function displayProduct(p) {
     const nutriments = p.nutriments || {};
+    const serving = p.serving_size || "?";
     const result = document.getElementById("result");
 
     const card = document.createElement("div");
     card.className = "card";
     card.innerHTML = `
       <h2>${p.product_name || "Unknown Product"}</h2>
+      <div class="nutrient"><span>Serving</span><span>${serving}</span></div>
       <div class="nutrient"><span>Calories</span><span>${nutriments["energy-kcal_serving"] || "?"} kcal</span></div>
       <div class="nutrient"><span>Protein</span><span>${nutriments.proteins_serving || "?"} g</span></div>
       <div class="nutrient"><span>Fat</span><span>${nutriments.fat_serving || "?"} g</span></div>
       <div class="nutrient"><span>Carbs</span><span>${nutriments.carbohydrates_serving || "?"} g</span></div>
       <div class="nutrient"><span>Sugar</span><span>${nutriments.sugars_serving || "?"} g</span></div>
       <div class="nutrient"><span>Sodium</span><span>${nutriments.sodium_serving || "?"} g</span></div>
+    `;
+    result.prepend(card);
+  }
+
+  function displayCustomProduct(p) {
+    const nutr = p.nutrition || {};
+    const result = document.getElementById("result");
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <h2>${p.name}</h2>
+      <div class="nutrient"><span>Serving</span><span>${p.serving}</span></div>
+      <div class="nutrient"><span>Calories</span><span>${p.calories} kcal</span></div>
+      <div class="nutrient"><span>Protein</span><span>${nutr.protein || "?"} g</span></div>
+      <div class="nutrient"><span>Fat</span><span>${nutr.fat || "?"} g</span></div>
+      <div class="nutrient"><span>Carbs</span><span>${nutr.carbs || "?"} g</span></div>
+      <div class="nutrient"><span>Sugar</span><span>${nutr.sugar || "?"} g</span></div>
+      <div class="nutrient"><span>Sodium</span><span>${nutr.sodium || "?"} g</span></div>
     `;
     result.prepend(card);
   }
