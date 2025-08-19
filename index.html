@@ -104,13 +104,14 @@
   <div id="result"></div>
 
 <script>
-  let scanner;
+  let scanner = null;
 
   async function startScanner() {
-    // Clear previous scanner if exists
+    // Stop previous scanner if exists
     if (scanner) {
       await scanner.stop().catch(()=>{});
       scanner.clear();
+      scanner = null; // Important to allow a new scanner
     }
 
     scanner = new Html5Qrcode("reader");
@@ -124,16 +125,16 @@
 
       const camId = cameras.find(c => c.label.toLowerCase().includes("back"))?.id || cameras[0].id;
 
-      // Start scanning
       scanner.start(
         camId,
         { fps: 10, qrbox: { width: 250, height: 250 } },
         async (decodedText) => {
-          // Once a barcode is detected, stop scanning
+          // Stop scanner after one scan
           await scanner.stop();
           scanner.clear();
+          scanner = null;
 
-          // Fetch product and display
+          // Fetch and display product
           fetchProduct(decodedText);
         },
         (err) => { console.log("Scan error:", err); }
