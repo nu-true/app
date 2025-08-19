@@ -3,93 +3,135 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin - Manage Products</title>
+<title>Admin - Nutrition Scanner</title>
 <style>
-  body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-  th, td { border: 1px solid #ccc; padding: 5px; text-align: center; }
-  th { background: #eee; }
-  input { width: 60px; }
-  .grade { padding: 2px 5px; border-radius: 5px; color: white; font-weight: bold; }
-  button { padding: 5px 10px; margin: 2px; }
-  #login { max-width: 300px; margin: 50px auto; }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #f0f2f5; }
+    h1 { text-align: center; }
+    #login-container, #admin-container { max-width: 800px; margin: auto; }
+    #login-container { display: flex; flex-direction: column; align-items: center; }
+    #login-container input { margin: 5px; padding: 10px; font-size: 1em; }
+    #product-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(250px,1fr)); gap: 15px; margin-top: 20px; }
+    .product-card { background: white; border-radius: 10px; padding: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+    .product-card input { width: 100%; margin: 5px 0; padding: 5px; box-sizing: border-box; }
+    button { padding: 8px 12px; margin: 5px 0; cursor: pointer; border: none; border-radius: 5px; }
+    #add-product { background: #28a745; color: white; }
+    #export-json { background: #007bff; color: white; width: 100%; }
 </style>
 </head>
 <body>
 
-<div id="login">
-  <h2>Admin Login</h2>
-  <input type="password" id="password" placeholder="Password">
-  <button onclick="login()">Login</button>
+<h1>Admin - Nutrition Scanner</h1>
+
+<div id="login-container">
+    <input type="password" id="password" placeholder="Enter Admin Password" />
+    <button id="login-btn">Login</button>
 </div>
 
-<div id="admin" style="display:none;">
-  <h1>Manage Products</h1>
-  <table id="productTable">
-    <thead>
-      <tr>
-        <th>Barcode</th><th>Name</th><th>Calories</th><th>Serving</th>
-        <th>Protein</th><th>Fat</th><th>Carbs</th><th>Sugar</th><th>Fiber</th><th>Sodium</th><th>Grade</th><th>Actions</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-  <button onclick="addProduct()">Add Product</button>
-  <button onclick="downloadJSON()">Download JSON</button>
+<div id="admin-container" style="display:none;">
+    <button id="add-product">+ Add Product</button>
+    <div id="product-grid"></div>
+    <button id="export-json">Export JSON</button>
+    <textarea id="json-output" style="width:100%; height:150px; margin-top:10px;"></textarea>
 </div>
 
 <script>
-const PASSWORD = "admin123"; // change password here
-let products = [
-  { barcode: "123456789012", name: "Apple", calories: 95, serving: "1 medium", grade: 90, nutrition: { protein: 0.5, fat: 0.3, carbs: 25, sugar: 19, fiber: 4.4, sodium: 1 } },
-  { barcode: "987654321098", name: "Chocolate Bar", calories: 250, serving: "1 bar", grade: 45, nutrition: { protein: 3, fat: 13, carbs: 30, sugar: 25, fiber: 2, sodium: 50 } }
-];
+const ADMIN_PASSWORD = "admin123"; // Change this to your password
+const loginContainer = document.getElementById('login-container');
+const adminContainer = document.getElementById('admin-container');
+const loginBtn = document.getElementById('login-btn');
+const passwordInput = document.getElementById('password');
+const productGrid = document.getElementById('product-grid');
+const addBtn = document.getElementById('add-product');
+const exportBtn = document.getElementById('export-json');
+const jsonOutput = document.getElementById('json-output');
 
-function login() {
-  const pass = document.getElementById('password').value;
-  if(pass === PASSWORD) {
-    document.getElementById('login').style.display = 'none';
-    document.getElementById('admin').style.display = 'block';
-    renderTable();
-  } else alert('Wrong password');
+let products = {
+    "0123456789012": {
+        name: "Chocolate Bar",
+        serving: "1 bar (50g)",
+        calories: 250,
+        fat: "12g",
+        carbs: "30g",
+        protein: "3g",
+        grade: 70
+    },
+    "9876543210987": {
+        name: "Granola Bar",
+        serving: "1 bar (40g)",
+        calories: 180,
+        fat: "6g",
+        carbs: "28g",
+        protein: "5g",
+        grade: 85
+    }
+};
+
+function renderGrid() {
+    productGrid.innerHTML = "";
+    Object.keys(products).forEach(barcode => {
+        const p = products[barcode];
+        const card = document.createElement('div');
+        card.className = 'product-card';
+        card.innerHTML = `
+            <label>Barcode</label><input type="text" value="${barcode}" class="barcode">
+            <label>Name</label><input type="text" value="${p.name}" class="name">
+            <label>Serving</label><input type="text" value="${p.serving}" class="serving">
+            <label>Calories</label><input type="number" value="${p.calories}" class="calories">
+            <label>Fat</label><input type="text" value="${p.fat}" class="fat">
+            <label>Carbs</label><input type="text" value="${p.carbs}" class="carbs">
+            <label>Protein</label><input type="text" value="${p.protein}" class="protein">
+            <label>Grade</label><input type="number" value="${p.grade}" class="grade">
+            <button class="delete-btn" style="background:#dc3545;color:white;">Delete</button>
+        `;
+        productGrid.appendChild(card);
+
+        card.querySelector('.delete-btn').addEventListener('click', () => {
+            delete products[barcode];
+            renderGrid();
+        });
+
+        const inputs = card.querySelectorAll('input');
+        inputs.forEach(input => {
+            input.addEventListener('change', () => {
+                const newBarcode = card.querySelector('.barcode').value;
+                products[newBarcode] = {
+                    name: card.querySelector('.name').value,
+                    serving: card.querySelector('.serving').value,
+                    calories: parseInt(card.querySelector('.calories').value),
+                    fat: card.querySelector('.fat').value,
+                    carbs: card.querySelector('.carbs').value,
+                    protein: card.querySelector('.protein').value,
+                    grade: parseInt(card.querySelector('.grade').value)
+                };
+                if (newBarcode !== barcode) {
+                    delete products[barcode];
+                    renderGrid();
+                }
+            });
+        });
+    });
 }
 
-function renderTable() {
-  const tbody = document.querySelector("#productTable tbody");
-  tbody.innerHTML = '';
-  products.forEach((p, i) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><input value="${p.barcode}" onchange="update(${i}, 'barcode', this.value)"></td>
-      <td><input value="${p.name}" onchange="update(${i}, 'name', this.value)"></td>
-      <td><input value="${p.calories}" type="number" onchange="update(${i}, 'calories', this.value)"></td>
-      <td><input value="${p.serving}" onchange="update(${i}, 'serving', this.value)"></td>
-      <td><input value="${p.nutrition.protein}" type="number" onchange="updateNutrition(${i}, 'protein', this.value)"></td>
-      <td><input value="${p.nutrition.fat}" type="number" onchange="updateNutrition(${i}, 'fat', this.value)"></td>
-      <td><input value="${p.nutrition.carbs}" type="number" onchange="updateNutrition(${i}, 'carbs', this.value)"></td>
-      <td><input value="${p.nutrition.sugar}" type="number" onchange="updateNutrition(${i}, 'sugar', this.value)"></td>
-      <td><input value="${p.nutrition.fiber}" type="number" onchange="updateNutrition(${i}, 'fiber', this.value)"></td>
-      <td><input value="${p.nutrition.sodium}" type="number" onchange="updateNutrition(${i}, 'sodium', this.value)"></td>
-      <td><input value="${p.grade}" type="number" onchange="update(${i}, 'grade', this.value)"></td>
-      <td><button onclick="deleteProduct(${i})">Delete</button></td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
+loginBtn.addEventListener('click', () => {
+    if(passwordInput.value === ADMIN_PASSWORD){
+        loginContainer.style.display = 'none';
+        adminContainer.style.display = 'block';
+        renderGrid();
+    } else {
+        alert('Incorrect password!');
+    }
+});
 
-function update(index, key, value) { products[index][key] = isNaN(value)? value : Number(value); renderTable(); }
-function updateNutrition(index, key, value) { products[index].nutrition[key] = Number(value); renderTable(); }
-function deleteProduct(index) { products.splice(index,1); renderTable(); }
-function addProduct() {
-  products.push({ barcode:"", name:"", calories:0, serving:"", grade:0, nutrition:{ protein:0,fat:0,carbs:0,sugar:0,fiber:0,sodium:0 }});
-  renderTable();
-}
-function downloadJSON() {
-  const blob = new Blob([JSON.stringify(products, null, 2)], {type: "application/json"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = "products.json"; a.click();
-}
+addBtn.addEventListener('click', () => {
+    const newBarcode = Date.now().toString().slice(-12);
+    products[newBarcode] = { name:"New Product", serving:"1 unit", calories:0, fat:"0g", carbs:"0g", protein:"0g", grade:0 };
+    renderGrid();
+});
+
+exportBtn.addEventListener('click', () => {
+    jsonOutput.value = JSON.stringify(products, null, 2);
+});
 </script>
+
 </body>
 </html>
