@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Barcode Scanner</title>
+<title>Product Scanner</title>
 <style>
   body {
     font-family: Arial, sans-serif;
+    background: #f2f2f2;
     margin: 0;
     padding: 0;
     display: flex;
@@ -14,93 +15,108 @@
     align-items: center;
   }
 
-  .scanner {
-    margin: 20px;
-    text-align: center;
+  h1 {
+    margin-top: 1rem;
+    color: #333;
   }
 
-  input[type="text"] {
-    padding: 10px;
-    font-size: 1.2em;
-    width: 80%;
+  #scanner-container {
+    position: relative;
+    width: 90vw;
     max-width: 400px;
+    margin: 2rem auto;
   }
 
-  .product-info {
-    margin-top: 20px;
-    width: 90%;
-    max-width: 400px;
-    padding: 15px;
+  video {
+    width: 100%;
     border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.3);
+  }
+
+  #result {
+    margin-top: 1rem;
+    padding: 1rem;
+    width: 90vw;
+    max-width: 400px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
     text-align: center;
-    color: white;
-    font-size: 1.1em;
   }
 
   .grade {
     font-weight: bold;
-    font-size: 1.3em;
-    margin-top: 10px;
+    font-size: 1.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    margin-top: 0.5rem;
+    display: inline-block;
   }
 
   @media (max-width: 600px) {
-    input[type="text"] {
-      font-size: 1.5em;
+    #scanner-container, #result {
+      width: 95vw;
     }
 
-    .product-info {
-      font-size: 1.3em;
-      padding: 20px;
+    .grade {
+      font-size: 1.8rem;
+      padding: 0.7rem 1.2rem;
     }
   }
 </style>
 </head>
 <body>
-
-<div class="scanner">
-  <input id="barcodeInput" type="text" placeholder="Scan barcode here" autofocus>
+<h1>Product Scanner</h1>
+<div id="scanner-container">
+  <video id="preview"></video>
+</div>
+<div id="result">
+  <div id="product-name">Scan a product</div>
+  <div id="calories"></div>
+  <div id="serving-size"></div>
+  <div id="grade" class="grade"></div>
 </div>
 
-<div id="productDisplay" class="product-info" style="display:none;"></div>
-
+<script src="https://unpkg.com/@zxing/library@latest"></script>
 <script>
-const productDisplay = document.getElementById('productDisplay');
-const barcodeInput = document.getElementById('barcodeInput');
+const codeReader = new ZXing.BrowserMultiFormatReader();
+const video = document.getElementById('preview');
+const resultName = document.getElementById('product-name');
+const resultCalories = document.getElementById('calories');
+const resultServing = document.getElementById('serving-size');
+const resultGrade = document.getElementById('grade');
 
-let products = {};
+let products = {}; // load your JSON data here
 
-// Load products from JSON
 fetch('products.json')
   .then(res => res.json())
-  .then(data => products = data);
+  .then(data => products = data)
+  .catch(err => console.log('Could not load JSON', err));
 
-barcodeInput.addEventListener('change', () => {
-  const code = barcodeInput.value.trim();
-  const product = products[code];
+codeReader.decodeFromVideoDevice(null, 'preview', (result, err) => {
+  if (result) {
+    const barcode = result.text;
+    const product = products[barcode];
 
-  if (!product) {
-    productDisplay.style.display = 'block';
-    productDisplay.style.backgroundColor = 'gray';
-    productDisplay.innerHTML = 'Product not found';
-    return;
+    if (product) {
+      resultName.textContent = product.name;
+      resultCalories.textContent = `Calories: ${product.calories}`;
+      resultServing.textContent = `Serving: ${product.serving}`;
+      
+      // Grade coloring logic
+      let grade = product.grade || 0;
+      resultGrade.textContent = `Grade: ${grade}`;
+      if (grade >= 80) resultGrade.style.background = 'green';
+      else if (grade >= 50) resultGrade.style.background = 'yellow';
+      else resultGrade.style.background = 'red';
+    } else {
+      resultName.textContent = 'Unknown product';
+      resultCalories.textContent = '';
+      resultServing.textContent = '';
+      resultGrade.textContent = '';
+    }
   }
-
-  const grade = product.grade;
-  let color = 'green';
-  if (grade < 60) color = 'red';
-  else if (grade < 80) color = 'yellow';
-
-  productDisplay.style.display = 'block';
-  productDisplay.style.backgroundColor = color;
-  productDisplay.innerHTML = `
-    <div><strong>${product.name}</strong></div>
-    <div>Calories: ${product.calories}</div>
-    <div>Serving Size: ${product.serving}</div>
-    <div class="grade">Grade: ${grade}</div>
-  `;
-  barcodeInput.value = '';
 });
 </script>
-
 </body>
 </html>
