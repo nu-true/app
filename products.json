@@ -1,14 +1,32 @@
-{
-  "0123456789012": {
+[
+  {
+    "barcode": "123456789012",
+    "name": "Apple",
+    "calories": 95,
+    "serving": "1 medium",
+    "grade": 90,
+    "nutrition": {
+      "protein": 0.5,
+      "fat": 0.3,
+      "carbs": 25,
+      "sugar": 19,
+      "fiber": 4.4,
+      "sodium": 1
+    }
+  },
+  {
+    "barcode": "987654321098",
     "name": "Chocolate Bar",
     "calories": 250,
-    "serving": "1 bar (45g)",
-    "grade": 85
-  },
-  "9876543210987": {
-    "name": "Apple Juice",
-    "calories": 120,
-    "serving": "1 cup (240ml)",
-    "grade": 70
+    "serving": "1 bar",
+    "grade": 45,
+    "nutrition": {
+      "protein": 3,
+      "fat": 13,
+      "carbs": 30,
+      "sugar": 25,
+      "fiber": 2,
+      "sodium": 50
+    }
   }
-}
+]
