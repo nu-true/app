@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin - Edit Products</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; }
+  h1 { text-align: center; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+  th { background-color: #f4f4f4; }
+  input[type="text"], input[type="number"] { width: 100%; box-sizing: border-box; }
+  button { padding: 10px 20px; margin-top: 10px; }
+  #passwordPrompt { display: flex; justify-content: center; margin-top: 50px; }
+</style>
+</head>
+<body>
+
+<div id="passwordPrompt">
+  <input id="adminPassword" type="password" placeholder="Enter admin password">
+  <button id="unlockBtn">Unlock</button>
+</div>
+
+<div id="adminContent" style="display:none;">
+  <h1>Product Admin</h1>
+  <table id="productTable">
+    <thead>
+      <tr>
+        <th>Barcode</th>
+        <th>Name</th>
+        <th>Calories</th>
+        <th>Serving</th>
+        <th>Grade</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <button id="downloadBtn">Download JSON</button>
+</div>
+
+<script>
+const PASSWORD = "admin123"; // change this to your password
+
+const passwordInput = document.getElementById('adminPassword');
+const unlockBtn = document.getElementById('unlockBtn');
+const adminContent = document.getElementById('adminContent');
+const productTableBody = document.querySelector('#productTable tbody');
+const downloadBtn = document.getElementById('downloadBtn');
+
+let products = {};
+
+unlockBtn.addEventListener('click', () => {
+  if (passwordInput.value === PASSWORD) {
+    document.getElementById('passwordPrompt').style.display = 'none';
+    adminContent.style.display = 'block';
+    loadProducts();
+  } else {
+    alert('Incorrect password');
+  }
+});
+
+function loadProducts() {
+  fetch('products.json')
+    .then(res => res.json())
+    .then(data => {
+      products = data;
+      renderTable();
+    });
+}
+
+function renderTable() {
+  productTableBody.innerHTML = '';
+  for (const code in products) {
+    const p = products[code];
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${code}</td>
+      <td><input type="text" value="${p.name}" data-field="name" data-code="${code}"></td>
+      <td><input type="number" value="${p.calories}" data-field="calories" data-code="${code}"></td>
+      <td><input type="text" value="${p.serving}" data-field="serving" data-code="${code}"></td>
+      <td><input type="number" value="${p.grade}" data-field="grade" data-code="${code}"></td>
+    `;
+    productTableBody.appendChild(row);
+  }
+
+  // Attach input listeners to update products
+  document.querySelectorAll('input').forEach(input => {
+    input.addEventListener('input', e => {
+      const code = e.target.dataset.code;
+      const field = e.target.dataset.field;
+      products[code][field] = field === "grade" || field === "calories" ? Number(e.target.value) : e.target.value;
+    });
+  });
+}
+
+downloadBtn.addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(products, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'products.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+</script>
+
+</body>
+</html>
