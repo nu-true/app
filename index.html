@@ -26,7 +26,6 @@
     #reader {
       width: 90%;
       max-width: 500px;
-      height: auto;
       margin: 1rem auto;
       border-radius: 12px;
       overflow: hidden;
@@ -55,6 +54,8 @@
       max-width: 500px;
       margin: 1rem auto;
       text-align: left;
+      max-height: 400px;
+      overflow-y: auto;
     }
 
     .card {
@@ -107,6 +108,7 @@
 
 <script>
   let scanner;
+  let scannedBarcodes = new Set();
 
   async function startScanner() {
     if (scanner) {
@@ -128,7 +130,11 @@
         camId,
         { fps: 10, qrbox: { width: 250, height: 250 } },
         async (decodedText) => {
-          await fetchProduct(decodedText);
+          // Prevent fetching the same barcode multiple times
+          if (!scannedBarcodes.has(decodedText)) {
+            scannedBarcodes.add(decodedText);
+            await fetchProduct(decodedText);
+          }
         },
         (err) => { console.log("Scan error:", err); }
       );
@@ -151,10 +157,10 @@
       if (data.status === 1) {
         displayProduct(data.product);
       } else {
-        document.getElementById("result").innerHTML = `<div class="card"><p>Product not found</p></div>`;
+        displayProduct({ product_name: "Product not found", nutriments: {} });
       }
     } catch (err) {
-      document.getElementById("result").innerHTML = `<div class="card"><p>Error fetching product</p></div>`;
+      displayProduct({ product_name: "Error fetching product", nutriments: {} });
       console.log(err);
     }
   }
@@ -162,17 +168,19 @@
   function displayProduct(p) {
     const nutriments = p.nutriments || {};
     const result = document.getElementById("result");
-    result.innerHTML = `
-      <div class="card">
-        <h2>${p.product_name || "Unknown Product"}</h2>
-        <div class="nutrient"><span>Calories</span><span>${nutriments["energy-kcal_serving"] || "?"} kcal</span></div>
-        <div class="nutrient"><span>Protein</span><span>${nutriments.proteins_serving || "?"} g</span></div>
-        <div class="nutrient"><span>Fat</span><span>${nutriments.fat_serving || "?"} g</span></div>
-        <div class="nutrient"><span>Carbs</span><span>${nutriments.carbohydrates_serving || "?"} g</span></div>
-        <div class="nutrient"><span>Sugar</span><span>${nutriments.sugars_serving || "?"} g</span></div>
-        <div class="nutrient"><span>Sodium</span><span>${nutriments.sodium_serving || "?"} g</span></div>
-      </div>
+    // append new card instead of replacing
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <h2>${p.product_name || "Unknown Product"}</h2>
+      <div class="nutrient"><span>Calories</span><span>${nutriments["energy-kcal_serving"] || "?"} kcal</span></div>
+      <div class="nutrient"><span>Protein</span><span>${nutriments.proteins_serving || "?"} g</span></div>
+      <div class="nutrient"><span>Fat</span><span>${nutriments.fat_serving || "?"} g</span></div>
+      <div class="nutrient"><span>Carbs</span><span>${nutriments.carbohydrates_serving || "?"} g</span></div>
+      <div class="nutrient"><span>Sugar</span><span>${nutriments.sugars_serving || "?"} g</span></div>
+      <div class="nutrient"><span>Sodium</span><span>${nutriments.sodium_serving || "?"} g</span></div>
     `;
+    result.prepend(card); // newest first
   }
 </script>
 </body>
