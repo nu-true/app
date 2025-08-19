@@ -14,7 +14,6 @@
       color: #222;
       text-align: center;
     }
-
     header {
       background: #4CAF50;
       color: white;
@@ -22,7 +21,6 @@
       font-size: 1.5rem;
       font-weight: bold;
     }
-
     #reader {
       width: 90%;
       max-width: 500px;
@@ -31,7 +29,6 @@
       overflow: hidden;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
-
     .btn {
       display: inline-block;
       margin: 0.5rem;
@@ -44,18 +41,13 @@
       color: white;
       transition: background 0.2s;
     }
-
-    .btn:active {
-      background: #45a049;
-    }
-
+    .btn:active { background: #45a049; }
     #result {
       width: 90%;
       max-width: 500px;
       margin: 1rem auto;
       text-align: left;
     }
-
     .card {
       background: white;
       margin: 1rem 0;
@@ -63,12 +55,7 @@
       border-radius: 12px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
-
-    .card h2 {
-      font-size: 1.3rem;
-      margin-bottom: 0.3rem;
-    }
-
+    .card h2 { font-size: 1.3rem; margin-bottom: 0.3rem; }
     .nutrient {
       display: flex;
       justify-content: space-between;
@@ -76,166 +63,148 @@
       border-bottom: 1px solid #eee;
       font-size: 1rem;
     }
-
-    .nutrient:last-child {
-      border-bottom: none;
-    }
-
+    .nutrient:last-child { border-bottom: none; }
     @media (max-width: 600px) {
-      #reader {
-        width: 95%;
-      }
-      .btn {
-        font-size: 1rem;
-        padding: 0.8rem 1.2rem;
-      }
-      .nutrient {
-        font-size: 0.95rem;
-      }
+      #reader { width: 95%; }
+      .btn { font-size: 1rem; padding: 0.8rem 1.2rem; }
+      .nutrient { font-size: 0.95rem; }
     }
   </style>
 </head>
 <body>
   <header>Nutrue</header>
-
   <div id="reader"></div>
   <button class="btn" onclick="startScanner()">Start Scan</button>
-
   <div id="result"></div>
 
 <script>
-  let scanner = null;
+let scanner = null;
+let customBarcodes = [];
 
-  // Custom barcode database
-  const customBarcodes = [
-    {
-      "barcode": "123456789012",
-      "name": "Apple",
-      "calories": 95,
-      "serving": "1 medium",
-      "grade": 90,
-      "nutrition": {
-        "protein": 0.5,
-        "fat": 0.3,
-        "carbs": 25,
-        "sugar": 19,
-        "fiber": 4.4,
-        "sodium": 1
-      }
-    },
-    {
-      "barcode": "987654321098",
-      "name": "Chocolate Bar",
-      "calories": 250,
-      "serving": "1 bar",
-      "grade": 45,
-      "nutrition": {
-        "protein": 3,
-        "fat": 13,
-        "carbs": 30,
-        "sugar": 25,
-        "fiber": 2,
-        "sodium": 50
-      }
-    }
-  ];
+// Load custom barcodes from Google Sheet CSV
+async function loadCustomBarcodes() {
+  const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTUSwMhQHfcrT2L10qEgxPE-zfSLKRpfO4IpRvzvlI5a8qOo2BvoEZ-CNn4n2N6lyQfNyQSXtbjJU-K/pub?output=csv"; // Replace with your published Google Sheet CSV link
+  try {
+    const res = await fetch(sheetUrl);
+    const text = await res.text();
+    const lines = text.trim().split("\n");
+    const headers = lines.shift().split(",");
+    customBarcodes = lines.map(line => {
+      const cols = line.split(",");
+      return {
+        barcode: cols[0],
+        name: cols[1],
+        calories: Number(cols[2]),
+        serving: cols[3],
+        nutrition: {
+          protein: Number(cols[4]),
+          fat: Number(cols[5]),
+          carbs: Number(cols[6]),
+          sugar: Number(cols[7]),
+          sodium: Number(cols[8])
+        }
+      };
+    });
+    console.log("Loaded custom barcodes:", customBarcodes);
+  } catch (err) {
+    console.error("Failed to load custom barcodes:", err);
+  }
+}
 
-  async function startScanner() {
-    if (scanner) {
-      await scanner.stop().catch(()=>{});
-      scanner.clear();
-      scanner = null;
-    }
-
-    scanner = new Html5Qrcode("reader");
-
-    try {
-      const cameras = await Html5Qrcode.getCameras();
-      if (!cameras || cameras.length === 0) {
-        alert("No camera found.");
-        return;
-      }
-
-      const camId = cameras.find(c => c.label.toLowerCase().includes("back"))?.id || cameras[0].id;
-
-      scanner.start(
-        camId,
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        async (decodedText) => {
-          await scanner.stop();
-          scanner.clear();
-          scanner = null;
-
-          fetchProduct(decodedText);
-        },
-        (err) => { console.log("Scan error:", err); }
-      );
-    } catch (err) {
-      alert("Camera error: " + err);
-    }
+async function startScanner() {
+  if (scanner) {
+    await scanner.stop().catch(()=>{});
+    scanner.clear();
+    scanner = null;
   }
 
-  async function fetchProduct(barcode) {
-    // Check custom barcodes first
-    const custom = customBarcodes.find(item => item.barcode === barcode);
-    if (custom) {
-      displayCustomProduct(custom);
+  scanner = new Html5Qrcode("reader");
+
+  try {
+    const cameras = await Html5Qrcode.getCameras();
+    if (!cameras || cameras.length === 0) {
+      alert("No camera found.");
       return;
     }
+    const camId = cameras.find(c => c.label.toLowerCase().includes("back"))?.id || cameras[0].id;
 
-    // Otherwise fetch from OpenFoodFacts
-    try {
-      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-      const data = await res.json();
-      if (data.status === 1) {
-        displayProduct(data.product);
-      } else {
-        displayProduct({ product_name: "Product not found", nutriments: {}, serving_size: "?" });
-      }
-    } catch (err) {
-      displayProduct({ product_name: "Error fetching product", nutriments: {}, serving_size: "?" });
-      console.log(err);
-    }
+    scanner.start(
+      camId,
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      async (decodedText) => {
+        await scanner.stop();
+        scanner.clear();
+        scanner = null;
+        fetchProduct(decodedText);
+      },
+      (err) => { console.log("Scan error:", err); }
+    );
+  } catch (err) {
+    alert("Camera error: " + err);
+  }
+}
+
+async function fetchProduct(barcode) {
+  const custom = customBarcodes.find(item => item.barcode === barcode);
+  if (custom) {
+    displayCustomProduct(custom);
+    return;
   }
 
-  function displayProduct(p) {
-    const nutriments = p.nutriments || {};
-    const serving = p.serving_size || "?";
-    const result = document.getElementById("result");
-
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `
-      <h2>${p.product_name || "Unknown Product"}</h2>
-      <div class="nutrient"><span>Serving</span><span>${serving}</span></div>
-      <div class="nutrient"><span>Calories</span><span>${nutriments["energy-kcal_serving"] || "?"} kcal</span></div>
-      <div class="nutrient"><span>Protein</span><span>${nutriments.proteins_serving || "?"} g</span></div>
-      <div class="nutrient"><span>Fat</span><span>${nutriments.fat_serving || "?"} g</span></div>
-      <div class="nutrient"><span>Carbs</span><span>${nutriments.carbohydrates_serving || "?"} g</span></div>
-      <div class="nutrient"><span>Sugar</span><span>${nutriments.sugars_serving || "?"} g</span></div>
-      <div class="nutrient"><span>Sodium</span><span>${nutriments.sodium_serving || "?"} g</span></div>
-    `;
-    result.prepend(card);
+  try {
+    const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+    const data = await res.json();
+    if (data.status === 1) displayProduct(data.product);
+    else displayProduct({ product_name: "Product not found", nutriments: {}, serving_size: "?" });
+  } catch (err) {
+    displayProduct({ product_name: "Error fetching product", nutriments: {}, serving_size: "?" });
+    console.log(err);
   }
+}
 
-  function displayCustomProduct(p) {
-    const nutr = p.nutrition || {};
-    const result = document.getElementById("result");
+function displayProduct(p) {
+  const nutriments = p.nutriments || {};
+  const serving = p.serving_size || "?";
+  const result = document.getElementById("result");
 
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `
-      <h2>${p.name}</h2>
-      <div class="nutrient"><span>Serving</span><span>${p.serving}</span></div>
-      <div class="nutrient"><span>Calories</span><span>${p.calories} kcal</span></div>
-      <div class="nutrient"><span>Protein</span><span>${nutr.protein || "?"} g</span></div>
-      <div class="nutrient"><span>Fat</span><span>${nutr.fat || "?"} g</span></div>
-      <div class="nutrient"><span>Carbs</span><span>${nutr.carbs || "?"} g</span></div>
-      <div class="nutrient"><span>Sugar</span><span>${nutr.sugar || "?"} g</span></div>
-      <div class="nutrient"><span>Sodium</span><span>${nutr.sodium || "?"} g</span></div>
-    `;
-    result.prepend(card);
-  }
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `
+    <h2>${p.product_name || "Unknown Product"}</h2>
+    <div class="nutrient"><span>Serving</span><span>${serving}</span></div>
+    <div class="nutrient"><span>Calories</span><span>${nutriments["energy-kcal_serving"] || "?"} kcal</span></div>
+    <div class="nutrient"><span>Protein</span><span>${nutriments.proteins_serving || "?"} g</span></div>
+    <div class="nutrient"><span>Fat</span><span>${nutriments.fat_serving || "?"} g</span></div>
+    <div class="nutrient"><span>Carbs</span><span>${nutriments.carbohydrates_serving || "?"} g</span></div>
+    <div class="nutrient"><span>Sugar</span><span>${nutriments.sugars_serving || "?"} g</span></div>
+    <div class="nutrient"><span>Sodium</span><span>${nutriments.sodium_serving || "?"} g</span></div>
+  `;
+  result.prepend(card);
+}
+
+function displayCustomProduct(p) {
+  const nutr = p.nutrition || {};
+  const result = document.getElementById("result");
+
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `
+    <h2>${p.name}</h2>
+    <div class="nutrient"><span>Serving</span><span>${p.serving}</span></div>
+    <div class="nutrient"><span>Calories</span><span>${p.calories} kcal</span></div>
+    <div class="nutrient"><span>Protein</span><span>${nutr.protein || "?"} g</span></div>
+    <div class="nutrient"><span>Fat</span><span>${nutr.fat || "?"} g</span></div>
+    <div class="nutrient"><span>Carbs</span><span>${nutr.carbs || "?"} g</span></div>
+    <div class="nutrient"><span>Sugar</span><span>${nutr.sugar || "?"} g</span></div>
+    <div class="nutrient"><span>Sodium</span><span>${nutr.sodium || "?"} g</span></div>
+  `;
+  result.prepend(card);
+}
+
+// Load custom barcodes when page loads
+window.addEventListener("DOMContentLoaded", async () => {
+  await loadCustomBarcodes();
+});
 </script>
 </body>
 </html>
