@@ -83,7 +83,7 @@ let customBarcodes = [];
 
 // Load custom barcodes from Google Sheet CSV
 async function loadCustomBarcodes() {
-  const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTUSwMhQHfcrT2L10qEgxPE-zfSLKRpfO4IpRvzvlI5a8qOo2BvoEZ-CNn4n2N6lyQfNyQSXtbjJU-K/pub?output=csv"; // Replace with your published Google Sheet CSV link
+  const sheetUrl = "YOUR_CSV_LINK_HERE"; // Replace with your published Google Sheet CSV link
   try {
     const res = await fetch(sheetUrl);
     const text = await res.text();
@@ -145,7 +145,10 @@ async function startScanner() {
 }
 
 async function fetchProduct(barcode) {
-  const custom = customBarcodes.find(item => item.barcode === barcode);
+  // Remove leading zeros for comparison
+  const cleanedBarcode = barcode.replace(/^0+/, "");
+  const custom = customBarcodes.find(item => item.barcode.replace(/^0+/, "") === cleanedBarcode);
+
   if (custom) {
     displayCustomProduct(custom);
     return;
