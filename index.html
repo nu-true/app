@@ -3,118 +3,81 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Product Scanner</title>
+<title>Barcode Scanner</title>
 <style>
-  body {
-    font-family: Arial, sans-serif;
-    background: #f2f2f2;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  h1 {
-    margin-top: 1rem;
-    color: #333;
-  }
-
-  #scanner-container {
-    position: relative;
-    width: 90vw;
-    max-width: 400px;
-    margin: 2rem auto;
-  }
-
-  video {
-    width: 100%;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.3);
-  }
-
-  #result {
-    margin-top: 1rem;
-    padding: 1rem;
-    width: 90vw;
-    max-width: 400px;
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    text-align: center;
-  }
-
-  .grade {
-    font-weight: bold;
-    font-size: 1.5rem;
-    padding: 0.5rem 1rem;
-    border-radius: 5px;
-    margin-top: 0.5rem;
-    display: inline-block;
-  }
-
-  @media (max-width: 600px) {
-    #scanner-container, #result {
-      width: 95vw;
-    }
-
-    .grade {
-      font-size: 1.8rem;
-      padding: 0.7rem 1.2rem;
-    }
-  }
+  body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
+  #product { display: none; padding: 20px; border-radius: 10px; background: white; width: 90%; max-width: 400px; margin: 20px auto; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+  #product div { margin-bottom: 10px; }
+  .grade { padding: 5px 10px; color: white; border-radius: 5px; font-weight: bold; display: inline-block; }
+  video { width: 100%; max-width: 400px; border-radius: 10px; }
 </style>
 </head>
 <body>
-<h1>Product Scanner</h1>
-<div id="scanner-container">
-  <video id="preview"></video>
-</div>
-<div id="result">
-  <div id="product-name">Scan a product</div>
+
+<h1>Scan a Product</h1>
+<video id="video" autoplay></video>
+
+<div id="product">
+  <div id="name"></div>
   <div id="calories"></div>
-  <div id="serving-size"></div>
+  <div id="serving"></div>
+  <div id="nutrition"></div>
   <div id="grade" class="grade"></div>
 </div>
 
-<script src="https://unpkg.com/@zxing/library@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@latest"></script>
 <script>
-const codeReader = new ZXing.BrowserMultiFormatReader();
-const video = document.getElementById('preview');
-const resultName = document.getElementById('product-name');
-const resultCalories = document.getElementById('calories');
-const resultServing = document.getElementById('serving-size');
-const resultGrade = document.getElementById('grade');
+const video = document.getElementById('video');
+const productDiv = document.getElementById('product');
+const nameDiv = document.getElementById('name');
+const caloriesDiv = document.getElementById('calories');
+const servingDiv = document.getElementById('serving');
+const nutritionDiv = document.getElementById('nutrition');
+const gradeDiv = document.getElementById('grade');
 
-let products = {}; // load your JSON data here
+let products = [
+  {
+    barcode: "123456789012",
+    name: "Apple",
+    calories: 95,
+    serving: "1 medium",
+    grade: 90,
+    nutrition: { protein: 0.5, fat: 0.3, carbs: 25, sugar: 19, fiber: 4.4, sodium: 1 }
+  },
+  {
+    barcode: "987654321098",
+    name: "Chocolate Bar",
+    calories: 250,
+    serving: "1 bar",
+    grade: 45,
+    nutrition: { protein: 3, fat: 13, carbs: 30, sugar: 25, fiber: 2, sodium: 50 }
+  }
+];
 
-fetch('products.json')
-  .then(res => res.json())
-  .then(data => products = data)
-  .catch(err => console.log('Could not load JSON', err));
+function showProduct(product) {
+  nameDiv.textContent = product.name;
+  caloriesDiv.textContent = `Calories: ${product.calories}`;
+  servingDiv.textContent = `Serving: ${product.serving}`;
+  const n = product.nutrition;
+  nutritionDiv.innerHTML = `
+    Protein: ${n.protein}g<br>
+    Fat: ${n.fat}g<br>
+    Carbs: ${n.carbs}g<br>
+    Sugar: ${n.sugar}g<br>
+    Fiber: ${n.fiber}g<br>
+    Sodium: ${n.sodium}mg
+  `;
+  gradeDiv.textContent = `Grade: ${product.grade}/100`;
+  gradeDiv.style.backgroundColor = product.grade >= 75 ? 'green' : product.grade >= 40 ? 'yellow' : 'red';
+  productDiv.style.display = 'block';
+}
 
-codeReader.decodeFromVideoDevice(null, 'preview', (result, err) => {
+// Setup webcam scanning
+const codeReader = new ZXing.BrowserBarcodeReader();
+codeReader.decodeFromVideoDevice(null, video, (result, err) => {
   if (result) {
-    const barcode = result.text;
-    const product = products[barcode];
-
-    if (product) {
-      resultName.textContent = product.name;
-      resultCalories.textContent = `Calories: ${product.calories}`;
-      resultServing.textContent = `Serving: ${product.serving}`;
-      
-      // Grade coloring logic
-      let grade = product.grade || 0;
-      resultGrade.textContent = `Grade: ${grade}`;
-      if (grade >= 80) resultGrade.style.background = 'green';
-      else if (grade >= 50) resultGrade.style.background = 'yellow';
-      else resultGrade.style.background = 'red';
-    } else {
-      resultName.textContent = 'Unknown product';
-      resultCalories.textContent = '';
-      resultServing.textContent = '';
-      resultGrade.textContent = '';
-    }
+    const product = products.find(p => p.barcode === result.text);
+    if (product) showProduct(product);
   }
 });
 </script>
