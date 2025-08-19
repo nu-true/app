@@ -2,6 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nutrue</title>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <style>
@@ -13,6 +14,7 @@
       color: #222;
       text-align: center;
     }
+
     header {
       background: #4CAF50;
       color: white;
@@ -20,42 +22,77 @@
       font-size: 1.5rem;
       font-weight: bold;
     }
+
     #reader {
-      width: 100%;
-      max-width: 400px;
+      width: 90%;
+      max-width: 500px;
+      height: auto;
       margin: 1rem auto;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
+
     .btn {
       display: inline-block;
       margin: 0.5rem;
-      padding: 0.8rem 1.2rem;
-      font-size: 1rem;
+      padding: 1rem 1.5rem;
+      font-size: 1.2rem;
       border: none;
-      border-radius: 8px;
+      border-radius: 12px;
       cursor: pointer;
       background: #4CAF50;
       color: white;
+      transition: background 0.2s;
     }
+
     .btn:active {
       background: #45a049;
     }
-    .card {
-      background: white;
+
+    #result {
+      width: 90%;
+      max-width: 500px;
       margin: 1rem auto;
-      padding: 1rem;
-      max-width: 400px;
-      border-radius: 12px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
       text-align: left;
     }
+
+    .card {
+      background: white;
+      margin: 1rem 0;
+      padding: 1rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    .card h2 {
+      font-size: 1.3rem;
+      margin-bottom: 0.5rem;
+    }
+
     .nutrient {
       display: flex;
       justify-content: space-between;
-      padding: 0.3rem 0;
+      padding: 0.5rem 0;
       border-bottom: 1px solid #eee;
+      font-size: 1rem;
     }
+
     .nutrient:last-child {
       border-bottom: none;
+    }
+
+    @media (max-width: 600px) {
+      #reader {
+        width: 95%;
+      }
+      .btn {
+        font-size: 1rem;
+        padding: 0.8rem 1.2rem;
+      }
+      .nutrient {
+        font-size: 0.95rem;
+      }
     }
   </style>
 </head>
@@ -71,59 +108,69 @@
 <script>
   let scanner;
 
-  function startScanner() {
-    if (scanner) scanner.stop();
+  async function startScanner() {
+    if (scanner) {
+      await scanner.stop().catch(()=>{});
+      scanner.clear();
+    }
 
     scanner = new Html5Qrcode("reader");
 
-    // Try environment camera, fallback to default
-    Html5Qrcode.getCameras().then(cameras => {
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      if (!cameras || cameras.length === 0) {
+        alert("No camera found.");
+        return;
+      }
       const camId = cameras.find(c => c.label.toLowerCase().includes("back"))?.id || cameras[0].id;
 
       scanner.start(
         camId,
         { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-          fetchProduct(decodedText);
-          stopScanner();
+        async (decodedText) => {
+          await fetchProduct(decodedText);
         },
         (err) => { console.log("Scan error:", err); }
-      ).catch(err => {
-        alert("Camera error: " + err);
-      });
-    });
+      );
+    } catch (err) {
+      alert("Camera error: " + err);
+    }
   }
 
-  function stopScanner() {
+  async function stopScanner() {
     if (scanner) {
-      scanner.stop().then(() => {
-        scanner.clear();
-      });
+      await scanner.stop().catch(()=>{});
+      scanner.clear();
     }
   }
 
   async function fetchProduct(barcode) {
-    const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-    const data = await res.json();
-    if (data.status === 1) {
-      const p = data.product;
-      displayProduct(p);
-    } else {
-      document.getElementById("result").innerHTML = `<p>Product not found</p>`;
+    try {
+      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+      const data = await res.json();
+      if (data.status === 1) {
+        displayProduct(data.product);
+      } else {
+        document.getElementById("result").innerHTML = `<div class="card"><p>Product not found</p></div>`;
+      }
+    } catch (err) {
+      document.getElementById("result").innerHTML = `<div class="card"><p>Error fetching product</p></div>`;
+      console.log(err);
     }
   }
 
   function displayProduct(p) {
+    const nutriments = p.nutriments || {};
     const result = document.getElementById("result");
     result.innerHTML = `
       <div class="card">
         <h2>${p.product_name || "Unknown Product"}</h2>
-        <div class="nutrient"><span>Calories</span><span>${p.nutriments["energy-kcal_serving"] || "?"} kcal</span></div>
-        <div class="nutrient"><span>Protein</span><span>${p.nutriments.proteins_serving || "?"} g</span></div>
-        <div class="nutrient"><span>Fat</span><span>${p.nutriments.fat_serving || "?"} g</span></div>
-        <div class="nutrient"><span>Carbs</span><span>${p.nutriments.carbohydrates_serving || "?"} g</span></div>
-        <div class="nutrient"><span>Sugar</span><span>${p.nutriments.sugars_serving || "?"} g</span></div>
-        <div class="nutrient"><span>Sodium</span><span>${p.nutriments.sodium_serving || "?"} g</span></div>
+        <div class="nutrient"><span>Calories</span><span>${nutriments["energy-kcal_serving"] || "?"} kcal</span></div>
+        <div class="nutrient"><span>Protein</span><span>${nutriments.proteins_serving || "?"} g</span></div>
+        <div class="nutrient"><span>Fat</span><span>${nutriments.fat_serving || "?"} g</span></div>
+        <div class="nutrient"><span>Carbs</span><span>${nutriments.carbohydrates_serving || "?"} g</span></div>
+        <div class="nutrient"><span>Sugar</span><span>${nutriments.sugars_serving || "?"} g</span></div>
+        <div class="nutrient"><span>Sodium</span><span>${nutriments.sodium_serving || "?"} g</span></div>
       </div>
     `;
   }
