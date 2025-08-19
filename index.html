@@ -1,117 +1,106 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nutrition Info</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f0f0f0;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Barcode Scanner</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .scanner {
+    margin: 20px;
+    text-align: center;
+  }
+
+  input[type="text"] {
+    padding: 10px;
+    font-size: 1.2em;
+    width: 80%;
+    max-width: 400px;
+  }
+
+  .product-info {
+    margin-top: 20px;
+    width: 90%;
+    max-width: 400px;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+    color: white;
+    font-size: 1.1em;
+  }
+
+  .grade {
+    font-weight: bold;
+    font-size: 1.3em;
+    margin-top: 10px;
+  }
+
+  @media (max-width: 600px) {
+    input[type="text"] {
+      font-size: 1.5em;
+    }
+
+    .product-info {
+      font-size: 1.3em;
       padding: 20px;
-      min-height: 100vh;
     }
-
-    .card {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      padding: 20px;
-      width: 320px;
-      max-width: 90vw;
-      text-align: center;
-      transition: transform 0.2s;
-    }
-
-    .card:hover {
-      transform: translateY(-5px);
-    }
-
-    .product-name {
-      font-size: 1.4rem;
-      font-weight: bold;
-      margin-bottom: 10px;
-    }
-
-    .serving {
-      font-size: 1rem;
-      color: #555;
-      margin-bottom: 8px;
-    }
-
-    .calories {
-      font-size: 1.2rem;
-      margin-bottom: 12px;
-    }
-
-    .grade {
-      font-size: 1.2rem;
-      font-weight: bold;
-      padding: 6px 12px;
-      border-radius: 8px;
-      color: #fff;
-      display: inline-block;
-      margin-bottom: 12px;
-    }
-
-    .green { background-color: #4caf50; }
-    .yellow { background-color: #ffb300; }
-    .red { background-color: #f44336; }
-
-    .nutrients {
-      text-align: left;
-      font-size: 0.95rem;
-      margin-top: 12px;
-    }
-
-    .nutrients div {
-      margin: 4px 0;
-    }
-
-    /* Mobile scaling */
-    @media (max-width: 480px) {
-      .card {
-        padding: 16px;
-      }
-      .product-name { font-size: 1.5rem; }
-      .calories, .grade, .serving { font-size: 1.1rem; }
-      .nutrients { font-size: 1rem; }
-    }
-  </style>
+  }
+</style>
 </head>
 <body>
 
-  <div class="card">
-    <div class="product-name" id="product-name">Energy Bar</div>
-    <div class="serving" id="serving-size">Serving: 1 bar (45g)</div>
-    <div class="calories" id="calories">Calories: 210 kcal</div>
-    <div class="grade green" id="nutrition-grade">Grade: 85</div>
+<div class="scanner">
+  <input id="barcodeInput" type="text" placeholder="Scan barcode here" autofocus>
+</div>
 
-    <div class="nutrients">
-      <div id="protein">Protein: 8g</div>
-      <div id="fiber">Fiber: 5g</div>
-      <div id="sugar">Sugar: 12g</div>
-      <div id="fat">Fat: 7g</div>
-    </div>
-  </div>
+<div id="productDisplay" class="product-info" style="display:none;"></div>
 
-  <script>
-    // Example logic to set grade color dynamically
-    const gradeElement = document.getElementById('nutrition-grade');
-    const score = 85; // replace with dynamic calculation
+<script>
+const productDisplay = document.getElementById('productDisplay');
+const barcodeInput = document.getElementById('barcodeInput');
 
-    if (score >= 80) {
-      gradeElement.className = 'grade green';
-    } else if (score >= 50) {
-      gradeElement.className = 'grade yellow';
-    } else {
-      gradeElement.className = 'grade red';
-    }
-    gradeElement.textContent = `Grade: ${score}`;
-  </script>
+let products = {};
+
+// Load products from JSON
+fetch('products.json')
+  .then(res => res.json())
+  .then(data => products = data);
+
+barcodeInput.addEventListener('change', () => {
+  const code = barcodeInput.value.trim();
+  const product = products[code];
+
+  if (!product) {
+    productDisplay.style.display = 'block';
+    productDisplay.style.backgroundColor = 'gray';
+    productDisplay.innerHTML = 'Product not found';
+    return;
+  }
+
+  const grade = product.grade;
+  let color = 'green';
+  if (grade < 60) color = 'red';
+  else if (grade < 80) color = 'yellow';
+
+  productDisplay.style.display = 'block';
+  productDisplay.style.backgroundColor = color;
+  productDisplay.innerHTML = `
+    <div><strong>${product.name}</strong></div>
+    <div>Calories: ${product.calories}</div>
+    <div>Serving Size: ${product.serving}</div>
+    <div class="grade">Grade: ${grade}</div>
+  `;
+  barcodeInput.value = '';
+});
+</script>
 
 </body>
 </html>
