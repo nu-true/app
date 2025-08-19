@@ -1,128 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Nutrition Barcode Scanner</title>
-  <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Barcode Nutrition Scanner</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
-    h1 { color: #333; }
-    button { padding: 10px 15px; margin: 10px 0; cursor: pointer; }
-    #reader { width: 300px; margin: 20px auto; border: 2px solid #ccc; background: #fff; }
-    .card { background: #fff; padding: 15px; margin-top: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    #reader { width: 100%; max-width: 400px; margin: auto; }
+    .card { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+    .success { border-left: 5px solid green; }
+    .error { border-left: 5px solid red; }
+    button { padding: 10px 15px; margin: 10px 0; border: none; border-radius: 5px; cursor: pointer; background: #007bff; color: white; }
+    button:disabled { background: #ccc; }
   </style>
+  <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
 </head>
 <body>
-  <h1>Nutrition Barcode Scanner</h1>
+  <h2>Barcode Nutrition Scanner</h2>
   <button onclick="startScanner()">Start Scan</button>
   <div id="reader"></div>
+  <div id="result"></div>
 
-  <div id="result" class="card" style="display:none;">
-    <h2 id="product-name"></h2>
-    <p><strong>Calories:</strong> <span id="product-calories"></span></p>
-    <p><strong>Serving Size:</strong> <span id="product-serving"></span></p>
-    <p><strong>Protein:</strong> <span id="product-protein"></span> g</p>
-    <p><strong>Fat:</strong> <span id="product-fat"></span> g</p>
-    <p><strong>Carbs:</strong> <span id="product-carbs"></span> g</p>
-    <p><strong>Sugar:</strong> <span id="product-sugar"></span> g</p>
-    <p><strong>Sodium:</strong> <span id="product-sodium"></span> mg</p>
-  </div>
+  <script>
+    const SPREADSHEET_ID = "YOUR_SHEET_ID"; 
+    const RANGE = "Sheet1!A2:G"; 
+    const API_KEY = "YOUR_API_KEY";
 
-<script>
-let scanner = null;
-let customBarcodes = [];
-
-// Load custom barcodes from Google Sheets
-async function loadCustomBarcodes() {
-  const SPREADSHEET_ID = "1E6_ttym28kV8Zmhgp6IZTbBU-JW2nMsHmMLF3nelwKk";
-  const API_KEY = "AIzaSyA_RFv8OEtfltOrt3wEsI4wojid5o6x79A";
-  const RANGE = "Sheet1!A2:I";
-
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?key=${API_KEY}`;
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!data.values) return;
-
-    customBarcodes = data.values.map(row => ({
-      barcode: (row[0] || "").padStart(12, "0"),
-      name: row[1] || "Unknown",
-      calories: Number(row[2]) || 0,
-      serving: row[3] || "?",
-      nutrition: {
-        protein: Number(row[4]) || 0,
-        fat: Number(row[5]) || 0,
-        carbs: Number(row[6]) || 0,
-        sugar: Number(row[7]) || 0,
-        sodium: Number(row[8]) || 0
+    async function fetchSheetData() {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?key=${API_KEY}`;
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!data.values) throw new Error("No data found in sheet");
+        return data.values.map(row => ({
+          barcode: (row[0] || "").padStart(12, "0"),
+          name: row[1] || "Unknown",
+          serving: row[2] || "N/A",
+          calories: row[3] || "N/A",
+          fat: row[4] || "N/A",
+          carbs: row[5] || "N/A",
+          protein: row[6] || "N/A",
+        }));
+      } catch (err) {
+        console.error("Fetch error:", err);
+        return [];
       }
-    }));
-    console.log("Loaded barcodes:", customBarcodes);
-  } catch (err) {
-    console.error("Error loading barcodes:", err);
-  }
-}
-
-// Start scanner
-async function startScanner() {
-  try {
-    if (scanner) {
-      await scanner.stop().catch(()=>{});
-      scanner = null;
     }
 
-    scanner = new Html5Qrcode("reader");
-    const cameras = await Html5Qrcode.getCameras();
-    if (!cameras || cameras.length === 0) {
-      alert("No camera found.");
-      return;
+    let html5QrcodeScanner;
+
+    async function startScanner() {
+      const readerDiv = document.getElementById("reader");
+      if (html5QrcodeScanner) {
+        await html5QrcodeScanner.stop().catch(()=>{});
+        readerDiv.innerHTML = ""; // reset
+      }
+
+      html5QrcodeScanner = new Html5Qrcode("reader");
+
+      try {
+        await html5QrcodeScanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: 250 },
+          async (decodedText) => {
+            const sheetData = await fetchSheetData();
+            const product = sheetData.find(p => p.barcode === decodedText);
+
+            const card = document.createElement("div");
+            card.className = "card " + (product ? "success" : "error");
+            card.innerHTML = product
+              ? `<h3>${product.name}</h3>
+                 <p><strong>Serving:</strong> ${product.serving}</p>
+                 <p><strong>Calories:</strong> ${product.calories}</p>
+                 <p><strong>Fat:</strong> ${product.fat}</p>
+                 <p><strong>Carbs:</strong> ${product.carbs}</p>
+                 <p><strong>Protein:</strong> ${product.protein}</p>`
+              : `<h3>Product not found</h3><p>Barcode: ${decodedText}</p>`;
+
+            const resultBox = document.getElementById("result");
+            resultBox.insertBefore(card, resultBox.firstChild);
+          }
+        );
+      } catch (err) {
+        console.error("Camera start failed:", err);
+        alert("Could not start camera. Please check permissions.");
+      }
     }
-
-    const camId = cameras.find(c => c.label.toLowerCase().includes("back"))?.id || cameras[0].id;
-
-    await scanner.start(
-      camId,
-      { fps: 10, qrbox: { width: 250, height: 250 } },
-      async (decodedText) => {
-        console.log("Scanned:", decodedText);
-        await scanner.stop();
-        scanner = null;
-        fetchProduct(decodedText);
-      },
-      (err) => { console.log("Scan error:", err); }
-    );
-
-  } catch (err) {
-    console.error("Camera error:", err);
-    alert("Camera error: " + err.message);
-  }
-}
-
-// Find product from custom list
-function fetchProduct(barcode) {
-  const product = customBarcodes.find(p => p.barcode === barcode);
-  if (product) {
-    displayProduct(product);
-  } else {
-    alert("Product not found in database.");
-  }
-}
-
-// Display product info
-function displayProduct(product) {
-  document.getElementById("result").style.display = "block";
-  document.getElementById("product-name").textContent = product.name;
-  document.getElementById("product-calories").textContent = product.calories;
-  document.getElementById("product-serving").textContent = product.serving;
-  document.getElementById("product-protein").textContent = product.nutrition.protein;
-  document.getElementById("product-fat").textContent = product.nutrition.fat;
-  document.getElementById("product-carbs").textContent = product.nutrition.carbs;
-  document.getElementById("product-sugar").textContent = product.nutrition.sugar;
-  document.getElementById("product-sodium").textContent = product.nutrition.sodium;
-}
-
-// Load custom barcodes on page load
-window.onload = loadCustomBarcodes;
-</script>
+  </script>
 </body>
 </html>
