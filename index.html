@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nutrue</title>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -83,28 +84,28 @@ let customBarcodes = [];
 
 // Load custom barcodes from Google Sheet CSV
 async function loadCustomBarcodes() {
-  const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTUSwMhQHfcrT2L10qEgxPE-zfSLKRpfO4IpRvzvlI5a8qOo2BvoEZ-CNn4n2N6lyQfNyQSXtbjJU-K/pub?output=csv"; // Replace with your published Google Sheet CSV link
+  const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTUSwMhQHfcrT2L10qEgxPE-zfSLKRpfO4IpRvzvlI5a8qOo2BvoEZ-CNn4n2N6lyQfNyQSXtbjJU-K/pub?output=csv"; 
   try {
     const res = await fetch(sheetUrl);
     const text = await res.text();
-    const lines = text.trim().split("\n");
-    const headers = lines.shift().split(",");
-    customBarcodes = lines.map(line => {
-      const cols = line.split(",");
-      return {
-        barcode: cols[0],
-        name: cols[1],
-        calories: Number(cols[2]),
-        serving: cols[3],
+
+    const parsed = Papa.parse(text, { header: true });
+    customBarcodes = parsed.data
+      .filter(row => row.barcode) // ignore empty rows
+      .map(row => ({
+        barcode: row.barcode.trim(),
+        name: row.name,
+        calories: Number(row.calories) || 0,
+        serving: row.serving,
         nutrition: {
-          protein: Number(cols[4]),
-          fat: Number(cols[5]),
-          carbs: Number(cols[6]),
-          sugar: Number(cols[7]),
-          sodium: Number(cols[8])
+          protein: Number(row.protein) || 0,
+          fat: Number(row.fat) || 0,
+          carbs: Number(row.carbs) || 0,
+          sugar: Number(row.sugar) || 0,
+          sodium: Number(row.sodium) || 0
         }
-      };
-    });
+      }));
+
     console.log("Loaded custom barcodes:", customBarcodes);
   } catch (err) {
     console.error("Failed to load custom barcodes:", err);
